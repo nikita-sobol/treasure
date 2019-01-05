@@ -1,12 +1,12 @@
-from django.conf import settings
 from rest_framework import exceptions
+
 from .models import User
 
 
 class UserAuthentication:
 
-    def authenticate(self, request, user_email=None,
-                     user_password=None, user_token=None):
+    def authenticate(self, request, email=None,
+                     password=None, user_token=None):
         """
         User credentials are being processed on the valid format.
         If User credentials are valid then will be returned User instance.
@@ -19,8 +19,8 @@ class UserAuthentication:
         """
 
         try:
-            user = User.objects.get(email=user_email)
-            if user.check_password(user_password):
+            user = User.objects.get(email=email)
+            if user.check_password(password):
                 return user
         except User.DoesNotExist:
             pass
@@ -28,14 +28,14 @@ class UserAuthentication:
         return None
 
     @staticmethod
-    def get_user(hashed_user_id):
+    def get_user(user_id):
         """
-        Return user object by id
-        :param hashed_user_id: String
-        :return: User object or None
+        Returns user by id
+        :param user_id: int
+        :return: User
         """
         try:
-            user_id = settings.HASH_IDS.decode(hashed_user_id)[0]
+            user_id = User.objects.get(id=user_id)
             return User.objects.get(pk=user_id)
-        except (User.DoesNotExist, IndexError):
+        except User.DoesNotExist:
             raise exceptions.NotFound(detail='User does not exist')

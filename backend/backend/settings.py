@@ -10,8 +10,7 @@ root = environ.Path(os.path.dirname(os.path.dirname(__file__)))
 sys.path.append(os.path.join(root, 'apps'))
 
 env = environ.Env(DEBUG=(bool, False))
-env.read_env('.env')
-
+env.read_env(os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env'))
 SITE_ROOT = root()
 
 DEBUG = env('DEBUG')
@@ -28,6 +27,9 @@ AUTHENTICATION_BACKENDS = (
 # Application definition
 
 INSTALLED_APPS = [
+    'users',
+    'dishes',
+    'stoves',
     'rest_framework',
     'rest_framework.authtoken',
     'django.contrib.admin',
@@ -36,7 +38,6 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'users',
 ]
 
 MIDDLEWARE = [

@@ -1,126 +1,100 @@
+from re import match
 from django.contrib.auth import authenticate
-from django.core.exceptions import ValidationError
-from django.core.validators import validate_email
 from rest_framework import exceptions, serializers
-from utils import (UploadedImageField, delete_std_images_from_media)
+
+from exceptions import ValidationError, NotFound, PermissionDenied
+
 from .models import User
 
 
-class UserSerializer(serializers.ModelSerializer):
+class BaseSerializer(serializers.ModelSerializer):
 
-    profile_image = UploadedImageField(max_length=None)
-
-    def update(self, instance, validated_data):
-        new_image = validated_data.get('profile_image')
-        old_image = instance.profile_image
-
-        if new_image and old_image:
-            delete_std_images_from_media(
-                old_image,
-                User.VARIATIONS_PROFILE_IMAGE
-            )
-
-        for attr, value in validated_data.items():
-            if value or attr != 'profile_image':
-                setattr(instance, attr, value)
-
-        instance.save()
-        return instance
-
-    class Meta:
-        model = User
-        exclude = ('email', 'password')
+    def to_internal_value(self, data):
+        return {key: value[0] for key, value in dict(data).items()}
 
 
-class LoginSerializer(serializers.Serializer):
+class LoginSerializer(BaseSerializer):
 
-    user_email = serializers.EmailField(required=True)
-    user_password = serializers.CharField(required=True)
+    def validate(self, data):
+        user = authenticate(email=data['email'], password=data['password'])
 
-    def validate(self, attrs):
-        user_email = attrs.get('user_email', '')
-        user_password = attrs.get('user_password', '')
-
-        try:
-            validate_email(user_email)
-        except ValidationError:
-            email_validation_error = exceptions.ValidationError
-            email_validation_error.default_detail = (
-                'Invalid user email format.'
-            )
-
-            raise email_validation_error
-
-        if not user_email or not user_password:
-            authorization_error = exceptions.ValidationError
-            authorization_error.default_detail = (
-                'User must provide email and password'
-            )
-
-            raise authorization_error
-
-        user = authenticate(user_email=user_email,
-                            user_password=user_password)
         if not user:
-            account_exists_error = exceptions.ValidationError
-            account_exists_error.default_detail = (
-                'Account with such credentials does not exist'
+            account_exists_error = exceptions.NotFound(
+                f'Account with email: {user.email} '
+                f'and password: {user["password"]} does not exist'
             )
 
             raise account_exists_error
 
         if not user.is_active:
-            activation_error = exceptions.ValidationError
-            activation_error.default_detail = (
-                'Account has not been activated yet'
+            activation_error = PermissionDenied(
+                f'Account {user.email}has not been activated yet'
             )
 
             raise activation_error
 
-        attrs['user'] = user
-        return attrs
-
-
-class PasswordSerializer(serializers.ModelSerializer):
-
-    old_password = serializers.CharField(required=True)
-    new_password = serializers.CharField(required=True)
+        return data
 
     class Meta:
         model = User
-        fields = ('old_password', 'new_password')
-
-    def update(self, instance, validated_data):
-        instance.set_password(validated_data.get('new_password'))
-        instance.save()
-        return instance
+        fields = ('email', 'password')
 
 
-class EmailSerializer(serializers.ModelSerializer):
+class RegistrationSerializer(BaseSerializer):
+
+    def create(self, validated_data):
+        # TODO: PUT SENDING EMAIL HERE
+
+        user = User.objects.create_user(**validated_data, is_active=False)
+        return user
+
+    def validate_email(self, value):
+        if value and User.objects.get(email=value):
+            raise ValidationError('User with such email already exists')
+
+        return value
+
+    def validate_password(self, value):
+        if not match(f'^(?=.*[A-Za-z])(?=.*\d)'
+                     f'(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8, 12}$'):
+            raise ValidationError('Password validation failed')
+
+        return value
 
     class Meta:
         model = User
-        fields = ('email',)
+        fields = ('email', 'password', 'fname')
 
-    def validate(self, attrs):
-        new_email = attrs.get('email')
 
-        try:
-            validate_email(new_email)
-        except ValidationError:
-            email_validation_error = exceptions.ValidationError
-            email_validation_error.default_detail = (
-                'Invalid user email format.'
+class UserUpdateSerializer(RegistrationSerializer):
+
+    def validate_password(self, value):
+
+        if self.password == value:
+            raise ValidationError(
+                'User cannot change password on the same one'
             )
 
-            raise email_validation_error
+        if value and not match(f'^(?=.*[A-Za-z])(?=.*\d)'
+                               f'(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8, 12}$'):
+            raise ValidationError('Password validation failed')
 
-        return attrs
+        return value
+
+    def validate_email(self, value):
+        if value and User.objects.get(email=value):
+            raise ValidationError('User with such email already exists')
+
+        return value
 
     def update(self, instance, validated_data):
-        new_email = validated_data.get('email')
-        instance.is_active = False
-        instance.email = new_email
-        instance.save()
 
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
         return instance
+
+    class Meta:
+        model = User
+        fields = ('email', 'password', 'fname', 'gender')
