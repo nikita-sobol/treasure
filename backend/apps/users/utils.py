@@ -64,7 +64,7 @@ def send_email_confirmation(user, to_email=None):
         f'is your email address.'
         f' Just click the link below \n'
         f'{settings.LOCAL_DOMAIN}/api/users/activate/'
-        f'{encrypted_email}/{email_token}/'
+        f'{encrypted_email}/{email_token}'
     ))
 
     mail = Mail(from_email, subject, to_email, content)

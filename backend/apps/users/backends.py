@@ -35,7 +35,6 @@ class UserAuthentication:
         :return: User
         """
         try:
-            user_id = User.objects.get(id=user_id)
             return User.objects.get(pk=user_id)
         except User.DoesNotExist:
             raise exceptions.NotFound(detail='User does not exist')

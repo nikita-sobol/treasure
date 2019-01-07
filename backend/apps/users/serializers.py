@@ -1,34 +1,36 @@
-from re import match
+import re
+
 from django.contrib.auth import authenticate
 from rest_framework import exceptions, serializers
 
 from exceptions import ValidationError, NotFound, PermissionDenied
 
 from .models import User
+from .utils import send_email_confirmation
 
 
-class BaseSerializer(serializers.ModelSerializer):
+class BaseLoginSerializer(serializers.ModelSerializer):
 
     def to_internal_value(self, data):
-        return {key: value[0] for key, value in dict(data).items()}
+        data = super().to_internal_value(data)
+        return data
 
 
-class LoginSerializer(BaseSerializer):
+class LoginSerializer(BaseLoginSerializer):
 
     def validate(self, data):
         user = authenticate(email=data['email'], password=data['password'])
 
         if not user:
             account_exists_error = exceptions.NotFound(
-                f'Account with email: {user.email} '
-                f'and password: {user["password"]} does not exist'
+                f"Account with email and password does not exist"
             )
 
             raise account_exists_error
 
         if not user.is_active:
             activation_error = PermissionDenied(
-                f'Account {user.email}has not been activated yet'
+                f'Account {user.email} has not been activated yet'
             )
 
             raise activation_error
@@ -38,25 +40,29 @@ class LoginSerializer(BaseSerializer):
     class Meta:
         model = User
         fields = ('email', 'password')
+        extra_kwargs = {
+            'email': {
+                'validators': [],
+            },
+        }
 
 
-class RegistrationSerializer(BaseSerializer):
+class RegistrationSerializer(BaseLoginSerializer):
 
     def create(self, validated_data):
-        # TODO: PUT SENDING EMAIL HERE
-
         user = User.objects.create_user(**validated_data, is_active=False)
+
+        send_email_confirmation(user)
+
         return user
 
-    def validate_email(self, value):
-        if value and User.objects.get(email=value):
-            raise ValidationError('User with such email already exists')
-
-        return value
-
     def validate_password(self, value):
-        if not match(f'^(?=.*[A-Za-z])(?=.*\d)'
-                     f'(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8, 12}$'):
+        password_match = re.match(
+            (r'^(?=.*[A-Za-z])(?=.*\d)' +
+             r'(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,12}$'), value
+        )
+
+        if not password_match:
             raise ValidationError('Password validation failed')
 
         return value
@@ -70,20 +76,12 @@ class UserUpdateSerializer(RegistrationSerializer):
 
     def validate_password(self, value):
 
+        super(UserUpdateSerializer, self).validate_password(value)
+
         if self.password == value:
             raise ValidationError(
                 'User cannot change password on the same one'
             )
-
-        if value and not match(f'^(?=.*[A-Za-z])(?=.*\d)'
-                               f'(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8, 12}$'):
-            raise ValidationError('Password validation failed')
-
-        return value
-
-    def validate_email(self, value):
-        if value and User.objects.get(email=value):
-            raise ValidationError('User with such email already exists')
 
         return value
 
@@ -97,4 +95,12 @@ class UserUpdateSerializer(RegistrationSerializer):
 
     class Meta:
         model = User
-        fields = ('email', 'password', 'fname', 'gender')
+        fields = ('email', 'password', 'fname', 'lname', 'gender', 'birthdate')
+        extra_kwargs = {
+            'email': {'required': False},
+            'password': {'required': False},
+            'fname': {'required': False},
+            'lname': {'required': False},
+            'gender': {'required': False},
+            'birthdate': {'required': False},
+        }

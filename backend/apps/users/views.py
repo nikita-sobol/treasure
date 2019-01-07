@@ -34,7 +34,7 @@ class UserLogin(APIView):
         if not serializer.is_valid(raise_exception=True):
             return Response(
                 {'message': 'Your email or password is not valid.'},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         user = User.objects.get(email=serializer.validated_data['email'])
@@ -82,13 +82,7 @@ class UserRegistration(APIView):
 
         serializer.is_valid(raise_exception=True)
 
-        user = serializer.save()
-
-        if not send_email_confirmation(user):
-            return Response({
-                'message': 'The mail has not been delivered'
-                           ' due to connection reasons'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        serializer.save()
 
         return Response(status=status.HTTP_201_CREATED)
 
@@ -110,8 +104,10 @@ class UserActivation(APIView):
         user = get_object_or_404(User, email=email)
 
         if user.is_active:
-            return Response({'message': 'User is already exists and activated'},
-                            status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {'message': 'User is already exists and activated'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         if account_activation_token.check_token(user, email_token):
             user.is_active = True
@@ -138,7 +134,7 @@ class UserRetryActivation(APIView):
         if not email:
             raise ValidationError('Email is required')
 
-        user = get_object_or_404(User, email)
+        user = get_object_or_404(User, email=email)
 
         if user.is_active:
             return Response(
@@ -146,13 +142,7 @@ class UserRetryActivation(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        is_activation_mail_sent = send_email_confirmation(user)
-
-        if not is_activation_mail_sent:
-            return Response({
-                'message': 'The mail has not been delivered'
-                           ' due to connection reasons'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        send_email_confirmation(user)
 
         return Response(
             {'message': 'Confirmation email has been sent'},
