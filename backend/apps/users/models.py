@@ -1,6 +1,6 @@
-from django.contrib.auth.models import AbstractBaseUser
-from django.contrib.auth.models import PermissionsMixin
+from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.db import models
+from rest_framework import exceptions
 
 from .utils import UserManager
 
@@ -29,3 +29,15 @@ class User(AbstractBaseUser, PermissionsMixin):
     objects = UserManager()
 
     USERNAME_FIELD = 'email'
+
+    @staticmethod
+    def get_user(user_id):
+        """
+        Returns user by id
+        :param user_id: int
+        :return: User
+        """
+        try:
+            return User.objects.get(pk=user_id)
+        except User.DoesNotExist:
+            raise exceptions.NotFound(detail='User does not exist')

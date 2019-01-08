@@ -1,3 +1,71 @@
-from django.shortcuts import render
+from rest_framework.views import APIView
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
-# Create your views here.
+from .serializers import DishSerializer, TimingSerializer
+from .models import Dish
+from utils import get_request_user
+
+
+class DishView(APIView):
+    authentication_classes = (TokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        user = get_request_user(request)
+        user_dishes = Dish.objects.filter(users__id=user.id)
+
+        serializer = DishSerializer(user_dishes, many=True)
+
+        response_data = serializer.data
+
+        return Response(data=response_data, status=200)
+
+    def post(self, request):
+        user = get_request_user(request)
+
+        serializer = DishSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        serializer.save(cook=user)
+
+        return Response(data=serializer.data, status=201)
+
+
+class TimingView(APIView):
+    authentication_classes = (TokenAuthentication,)
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, dish_id):
+        user = get_request_user(request)
+        dish = Dish.objects.filter(users__id=user.id, pk=dish_id).first()
+
+        if not dish:
+            return Response(
+                data=f"User not allowed to edit dish with id {dish_id}",
+                status=403
+            )
+
+        timings = dish.timings.all()
+
+        serializer = TimingSerializer(timings, many=True)
+
+        return Response(data=serializer.data, status=200)
+
+    def post(self, request, dish_id):
+        user = get_request_user(request)
+        dish = Dish.objects.filter(users__id=user.id, pk=dish_id).first()
+
+        if not dish:
+            return Response(
+                data=f"User not allowed to edit dish with id {dish_id}",
+                status=403
+            )
+
+        serializer = TimingSerializer(data=request.data)
+
+        serializer.is_valid(raise_exception=True)
+        serializer.save(dish=dish)
+
+        return Response(data=serializer.data, status=201)

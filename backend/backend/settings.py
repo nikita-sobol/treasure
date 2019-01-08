@@ -114,20 +114,17 @@ USE_L10N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-
 STATIC_URL = '/static/'
 
-# Email confirmation setup
+
 SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY')
 EMAIL_BACKEND = 'sendgrid_backend.SendgridBackend'
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
 ENCODING_DES_KEY = 'ffffffff'
 
+
 LOCAL_DOMAIN = 'http://localhost:8000'
 
-
-# DRF AUTHENTICATION TOKEN CONSTANTS
 
 USER_TOKEN_DURATION_DAYS = 1
 USER_TOKEN_LIFETIME = timezone.timedelta(days=USER_TOKEN_DURATION_DAYS)
