@@ -4,7 +4,6 @@ from django.contrib.auth import authenticate
 from rest_framework import exceptions, serializers
 
 from exceptions import ValidationError, NotFound, PermissionDenied
-
 from .models import User
 from .utils import send_email_confirmation
 
@@ -72,35 +71,8 @@ class RegistrationSerializer(BaseLoginSerializer):
         fields = ('email', 'password', 'fname')
 
 
-class UserUpdateSerializer(RegistrationSerializer):
-
-    def validate_password(self, value):
-
-        super(UserUpdateSerializer, self).validate_password(value)
-
-        if self.password == value:
-            raise ValidationError(
-                'User cannot change password on the same one'
-            )
-
-        return value
-
-    def update(self, instance, validated_data):
-
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-
-        instance.save()
-        return instance
+class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ('email', 'password', 'fname', 'lname', 'gender', 'birthdate')
-        extra_kwargs = {
-            'email': {'required': False},
-            'password': {'required': False},
-            'fname': {'required': False},
-            'lname': {'required': False},
-            'gender': {'required': False},
-            'birthdate': {'required': False},
-        }
+        fields = ('id', 'email', 'fname', 'lname', 'birthdate', 'gender')
