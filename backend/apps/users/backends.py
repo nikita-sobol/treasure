@@ -17,15 +17,12 @@ class UserAuthentication:
         :param user_token: String
         :return: User object or None
         """
+        user = User.objects.filter(email=email).first()
 
-        try:
-            user = User.objects.get(email=email)
-            if user.check_password(password):
-                return user
-        except User.DoesNotExist:
-            pass
+        if not user or not user.check_password(password):
+            return None
 
-        return None
+        return user
 
     @staticmethod
     def get_user(user_id):

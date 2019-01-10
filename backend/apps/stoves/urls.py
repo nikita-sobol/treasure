@@ -4,7 +4,8 @@ from . import views
 
 urlpatterns = [
     path('stoves/<int:stove_id>/', include([
-        path('cooks', views.StoveCooksView.as_view()),
+        path('cooks', views.CRUDCooksView.as_view()),
+        path('chiefs', views.CRUDChiefsView.as_view()),
     ])),
 ]
 
